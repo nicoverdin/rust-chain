@@ -10,6 +10,9 @@ const STORAGE_PATH: &str = "history.db";
 pub struct Blockchain {
     pub blocks: Vec<Block>,
     pub difficulty: usize,
+
+    #[serde(skip, default)]
+    pub pending_transactions: Vec<Transaction>,
 }
 
 impl Blockchain {
@@ -22,6 +25,7 @@ impl Blockchain {
         let chain = Blockchain {
             blocks: vec![genesis.clone()],
             difficulty,
+            pending_transactions: Vec::new(),
         };
 
         let _ = chain.append_block_to_disk(&chain.blocks[0]);
@@ -29,11 +33,35 @@ impl Blockchain {
         chain
     }
 
-    pub fn add_block(&mut self, transactions: Vec<Transaction>) {
+    pub fn add_transaction(&mut self, transaction: Transaction) -> bool {
+        // Future validations
+        self.pending_transactions.push(transaction);
+        println!("Transaction added to Mempool");
+        true
+    }
+
+    pub fn mine_pending_transactions(&mut self, miner_address: String) {
+        if self.pending_transactions.is_empty() {
+            println!("Pending transactions is empty.");
+            return;
+        }
+
+        println!("Packing {} transactions in a new block...", self.pending_transactions.len());
+
+        // System creates money to pay the miner
+        let reward_tx = Transaction::new(
+            "SISTEMA".to_string(),
+            miner_address,
+            50,
+        );
+        self.pending_transactions.push(reward_tx);
+
+        let block_transactions = self.pending_transactions.clone();
+
         let prev_block = self.blocks.last().unwrap();
 
         let mut new_block = Block::new(
-            transactions,
+            block_transactions,
             prev_block.hash.clone(),
             prev_block.height + 1,
             self.difficulty,
@@ -44,9 +72,10 @@ impl Blockchain {
         match self.append_block_to_disk(&new_block) {
             Ok(_) => {
                 self.blocks.push(new_block);
-                println!("💾 Bloque guardado en disco (Append-Only)");
+                self.pending_transactions.clear();
+                println!("Block mined successfully and cleared Mempool.");
             },
-            Err(e) => eprintln!("❌ Error crítico guardando bloque en disco: {}", e),
+            Err(e) => eprintln!("Critical error saving {}", e),
         }
     }
 
@@ -97,6 +126,7 @@ impl Blockchain {
         Some(Blockchain {
             blocks,
             difficulty: last_difficulty,
+            pending_transactions: Vec::new(),
         })
     }
 }
