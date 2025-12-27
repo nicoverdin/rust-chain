@@ -18,8 +18,6 @@ fn main() {
             println!("No se encontró registro. Creando nueva cadena Génesis.");
             let difficulty = 4; // Configuración inicial
             let new_chain = Blockchain::new(difficulty);
-            // Guardamos inmediatamente el estado inicial
-            let _ = new_chain.save_chain(); 
             new_chain
         }
     };
@@ -49,7 +47,7 @@ fn main() {
                 println!("{:#?}", chain);
             },
             "3" => {
-                println!("Saliendo... (Los datos están guardados en chain.json)");
+                println!("Saliendo... (Los datos están guardados en history.db)");
                 break;
             }
             _ => println!("Opción no válida"),
