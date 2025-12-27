@@ -1,4 +1,5 @@
 use crate::block::Block;
+use crate::transaction::Transaction;
 use serde::{Serialize, Deserialize};
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
@@ -13,13 +14,13 @@ pub struct Blockchain {
 
 impl Blockchain {
     pub fn new(difficulty: usize) -> Blockchain {
-        let mut genesys = Block::genesis();
-        genesys.difficulty = difficulty;
-        genesys.hash = genesys.calculate_hash();
-        genesys.mine();
+        let mut genesis = Block::genesis();
+        genesis.difficulty = difficulty;
+        genesis.hash = genesis.calculate_hash();
+        genesis.mine();
 
         let chain = Blockchain {
-            blocks: vec![genesys.clone()],
+            blocks: vec![genesis.clone()],
             difficulty,
         };
 
@@ -28,11 +29,11 @@ impl Blockchain {
         chain
     }
 
-    pub fn add_block(&mut self, data: String) {
+    pub fn add_block(&mut self, transactions: Vec<Transaction>) {
         let prev_block = self.blocks.last().unwrap();
 
         let mut new_block = Block::new(
-            data,
+            transactions,
             prev_block.hash.clone(),
             prev_block.height + 1,
             self.difficulty,

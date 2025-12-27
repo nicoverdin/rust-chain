@@ -1,3 +1,4 @@
+use crate::transaction::Transaction;
 use chrono::prelude::*;
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
@@ -5,7 +6,7 @@ use sha2::{Sha256, Digest};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub timestamp: i64,
-    pub data: String,
+    pub transactions: Vec<Transaction>,
     pub prev_block_hash: String,
     pub hash: String,
     pub height: u64,
@@ -14,11 +15,11 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn new(data: String, prev_block_hash: String, height: u64, difficulty: usize) -> Block {
+    pub fn new(transactions: Vec<Transaction>, prev_block_hash: String, height: u64, difficulty: usize) -> Block {
         let timestamp = Utc::now().timestamp();
         let mut block = Block {
             timestamp,
-            data,
+            transactions,
             prev_block_hash,
             hash: String::new(),
             height,
@@ -31,9 +32,13 @@ impl Block {
     }
 
     pub fn calculate_hash(&self) -> String {
+        let tx_data = self.transactions.iter()
+            .map(|tx| tx.id.clone())
+            .collect::<String>();
+
         let input = format!("{}{}{}{}{}{}", 
             self.timestamp, 
-            self.data, 
+            tx_data, 
             self.prev_block_hash, 
             self.height,
             self.nonce,
@@ -41,10 +46,8 @@ impl Block {
         );
         
         let mut hasher = Sha256::new();
-        hasher.update(input);
-        let result = hasher.finalize();
-        
-        hex::encode(result)
+        hasher.update(input);        
+        hex::encode(hasher.finalize())
     }
 
     pub fn mine(&mut self) {
@@ -62,8 +65,14 @@ impl Block {
 
     pub fn genesis() -> Block {
         let difficulty: usize = 0;
+        let genesis_tx = Transaction::new(
+            "0".to_string(),
+            "admin".to_string(),
+            1000
+        );
+
         let mut block = Block::new(
-            "Genesis Block".to_string(), 
+            vec![genesis_tx], 
             "0".to_string(),
             0,
             difficulty,
