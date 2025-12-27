@@ -32,9 +32,7 @@ impl Block {
     }
 
     pub fn calculate_hash(&self) -> String {
-        let tx_data = self.transactions.iter()
-            .map(|tx| tx.id.clone())
-            .collect::<String>();
+        let tx_data = format!("{:?}", self.transactions);
 
         let input = format!("{}{}{}{}{}{}", 
             self.timestamp, 
@@ -53,14 +51,14 @@ impl Block {
     pub fn mine(&mut self) {
         let target = "0".repeat(self.difficulty);
 
-        println!("⛏️  Mining block {}...", self.height);
+        println!("Mining block {}...", self.height);
 
         while self.hash[0..self.difficulty] != target {
             self.nonce += 1;
             self.hash = self.calculate_hash();
         }
 
-        println!("✅ Block successfully mined! Nonce: {}, Hash: {}", self.nonce, self.hash);
+        println!("Block successfully mined! Nonce: {}, Hash: {}", self.nonce, self.hash);
     }
 
     pub fn genesis() -> Block {

@@ -34,7 +34,11 @@ impl Blockchain {
     }
 
     pub fn add_transaction(&mut self, transaction: Transaction) -> bool {
-        // Future validations
+        if !transaction.is_valid() {
+            println!("Invalid transaction: invalid or malformed firm.");
+            return false;
+        }
+
         self.pending_transactions.push(transaction);
         println!("Transaction added to Mempool");
         true
@@ -50,7 +54,7 @@ impl Blockchain {
 
         // System creates money to pay the miner
         let reward_tx = Transaction::new(
-            "SISTEMA".to_string(),
+            "SISTEM".to_string(),
             miner_address,
             50,
         );
@@ -81,11 +85,18 @@ impl Blockchain {
 
     pub fn is_chain_valid(&self) -> bool {
         for (i, block) in self.blocks.iter().enumerate() {
-            if i == 0 { continue; }
-            let prev_block = &self.blocks[i - 1];
+            if block.calculate_hash() != block.hash {
+                println!("Invalid block {}: hash and data doesn't match.", i);
+                return false;
+            }
 
-            if block.prev_block_hash != prev_block.hash { return false; }
-            if block.calculate_hash() != block.hash { return false; }
+            if i == 0 { continue; }
+            
+            let prev_block = &self.blocks[i - 1];
+            if block.prev_block_hash != prev_block.hash {
+                println!("Invalid block {}: Previous hash doesn't match.", i);
+                return false;
+            }
         }
         true
     }
@@ -130,8 +141,6 @@ impl Blockchain {
         })
     }
 }
-
-// ... (Todo el código anterior de chain.rs)
 
 #[cfg(test)]
 mod tests {
