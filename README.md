@@ -45,6 +45,7 @@ cd rust-chain
 # 2. Run the node 
 # (Note: Delete 'history.db' if you are migrating from a previous version)
 cargo run
+```
 
 ## 🗺️ Roadmap
 
