@@ -130,3 +130,52 @@ impl Blockchain {
         })
     }
 }
+
+// ... (Todo el código anterior de chain.rs)
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::transaction::Transaction;
+
+    fn cleanup() {
+        let _ = std::fs::remove_file("history.db");
+    }
+
+    #[test]
+    fn test_genesis_block_creation() {
+        cleanup();
+        let chain = Blockchain::new(1);
+        
+        assert_eq!(chain.blocks.len(), 1);
+        assert_eq!(chain.blocks[0].transactions.len(), 1);
+    }
+
+    #[test]
+    fn test_add_transaction() {
+        cleanup();
+        let mut chain = Blockchain::new(1);
+        
+        let tx = Transaction::new("Alice".to_string(), "Bob".to_string(), 50);
+        chain.add_transaction(tx);
+
+        assert_eq!(chain.pending_transactions.len(), 1);
+    }
+
+    #[test]
+    fn test_mine_block() {
+        cleanup();
+        let mut chain = Blockchain::new(1);
+        
+        let tx1 = Transaction::new("A".to_string(), "B".to_string(), 10);
+        chain.add_transaction(tx1);
+
+        // Minamos
+        chain.mine_pending_transactions("Miner1".to_string());
+
+        // Verificaciones
+        assert_eq!(chain.blocks.len(), 2);
+        assert_eq!(chain.pending_transactions.len(), 0);
+        assert_eq!(chain.blocks[1].transactions.len(), 2);
+    }
+}
