@@ -13,8 +13,7 @@ fn main() {
         Some(c) => c,
         None => {
             let difficulty = 4;
-            let new_chain = Blockchain::new(difficulty);
-            new_chain
+            Blockchain::new(difficulty)
         }
     };
 

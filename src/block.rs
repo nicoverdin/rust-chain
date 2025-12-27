@@ -55,7 +55,7 @@ impl Block {
 
         println!("⛏️  Mining block {}...", self.height);
 
-        while &self.hash[0..self.difficulty] != target {
+        while self.hash[0..self.difficulty] != target {
             self.nonce += 1;
             self.hash = self.calculate_hash();
         }
