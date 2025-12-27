@@ -1,5 +1,7 @@
 # RustChain 🦀⛓️
 
+![RustChain CI](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml/badge.svg)
+
 A robust and efficient Layer 1 Blockchain implementation written in Rust from scratch. This project demonstrates advanced concepts in distributed systems, cryptography, and I/O optimization, built purely for educational and engineering purposes.
 
 ## 🚀 Key Features
@@ -9,6 +11,7 @@ A robust and efficient Layer 1 Blockchain implementation written in Rust from sc
 - **Transaction Management:** Implemented a **Mempool** (Memory Pool) to decouple transaction ingestion from block mining, simulating high-throughput environments.
 - **Data Integrity:** Full cryptographic validation (Hash linkage) to guarantee the immutability of the ledger history.
 - **Type Safety:** Leveraging Rust's strict type system to prevent invalid states at compile time.
+- **Code Quality (CI/CD):** Automated GitHub Actions workflow that executes `cargo test` and `clippy` on every commit to enforce code stability and best practices.
 
 ## 🛠️ Tech Stack
 
