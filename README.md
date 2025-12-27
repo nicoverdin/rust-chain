@@ -39,7 +39,7 @@ Prerequisites: Ensure `cargo` and `rustc` are installed.
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/your-username/rust-chain](https://github.com/your-username/rust-chain)
+git clone [https://github.com/nicoverdin/rust-chain](https://github.com/nicoverdin/rust-chain)
 cd rust-chain
 
 # 2. Run the node 
