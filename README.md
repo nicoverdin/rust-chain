@@ -56,6 +56,6 @@ cargo run
 - [x] Proof of Work Consensus
 - [x] Optimized Disk Persistence (Append-Only)
 - [x] Transactions & Mempool
-- [ ] Digital Signatures (Elliptic Curve Cryptography)
+- [x] Digital Signatures (Elliptic Curve Cryptography)
 - [ ] P2P Network Implementation (libp2p)
 - [ ] CLI Wallet Interface
