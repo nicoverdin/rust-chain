@@ -2,28 +2,27 @@ mod block;
 mod chain;
 
 use chain::Blockchain;
+use std::time::Instant; // Para medir cuánto tarda
 
 fn main() {
-    println!("Iniciando RustChain...");
+    println!("⛓️  Iniciando RustChain con PoW...");
 
-    let mut chain = Blockchain::new();
-    println!("✅ Cadena iniciada con bloque Génesis.");
+    // Dificultad 2: Instantáneo
+    // Dificultad 4: Unos milisegundos
+    // Dificultad 5: Se empieza a notar (1-5 segundos)
+    // Dificultad 6: Prepara el café...
+    let difficulty = 5; 
+    let mut chain = Blockchain::new(difficulty);
 
-    println!("⛏️  Minando bloque 1...");
-    chain.add_block("Alice paga 50 coins a Bob".to_string());
+    println!("La dificultad está establecida en: {}", chain.difficulty);
+
+    let start = Instant::now();
     
-    println!("⛏️  Minando bloque 2...");
-    chain.add_block("Bob paga 10 coins a Charlie".to_string());
+    chain.add_block("Bloque 1: Datos importantes".to_string());
+    chain.add_block("Bloque 2: Más datos".to_string());
 
-    println!("\nEstado actual de la cadena:");
-    println!("{:#?}", chain);
-
-    println!("\n🔍 Verificando integridad de la cadena...");
-    println!("¿Es válida?: {}", chain.is_chain_valid());
-
-    println!("\n😈 Intentando manipular el historial...");
-    chain.blocks[1].data = "Alice paga 1000000 coins a Bob".to_string();
+    let duration = start.elapsed();
+    println!("\n⏱️ Tiempo total de minado: {:?}", duration);
     
-    println!("🔍 Verificando integridad tras el ataque...");
-    println!("¿Es válida?: {}", chain.is_chain_valid());
+    println!("¿Cadena válida?: {}", chain.is_chain_valid());
 }

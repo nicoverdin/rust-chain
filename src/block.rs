@@ -9,6 +9,7 @@ pub struct Block {
     pub prev_block_hash: String,
     pub hash: String,
     pub height: u64,
+    pub nonce: u64
 }
 
 impl Block {
@@ -20,6 +21,7 @@ impl Block {
             prev_block_hash,
             hash: String::new(),
             height,
+            nonce: 0,
         };
         
         block.hash = block.calculate_hash();
@@ -27,11 +29,12 @@ impl Block {
     }
 
     pub fn calculate_hash(&self) -> String {
-        let input = format!("{}{}{}{}", 
+        let input = format!("{}{}{}{}{}", 
             self.timestamp, 
             self.data, 
             self.prev_block_hash, 
-            self.height
+            self.height,
+            self.nonce,
         );
         
         let mut hasher = Sha256::new();
@@ -41,11 +44,27 @@ impl Block {
         hex::encode(result)
     }
 
+    pub fn mine(&mut self, difficulty: usize) {
+        let target = "0".repeat(difficulty);
+
+        println!("⛏️  Minando bloque {}...", self.height);
+
+        while &self.hash[0..difficulty] != target {
+            self.nonce += 1;
+            self.hash = self.calculate_hash();
+        }
+
+        println!("✅ Bloque minado! Nonce: {}, Hash: {}", self.nonce, self.hash);
+    }
+
     pub fn genesis() -> Block {
-        Block::new(
+        let mut block = Block::new(
             "Genesis Block".to_string(), 
             "0".to_string(),
             0
-        )
+        );
+
+        block.hash = block.calculate_hash();
+        block
     }
 }
