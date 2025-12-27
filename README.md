@@ -1,6 +1,6 @@
 # RustChain 🦀⛓️
 
-![RustChain CI](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml/badge.svg)
+[![CI Status](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml)
 
 A robust and efficient Layer 1 Blockchain implementation written in Rust from scratch. This project demonstrates advanced concepts in distributed systems, cryptography, and I/O optimization, built purely for educational and engineering purposes.
 
