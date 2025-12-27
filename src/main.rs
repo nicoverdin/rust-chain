@@ -1,5 +1,6 @@
 mod block;
 mod chain;
+mod transaction;
 
 use chain::Blockchain;
 use std::io::{self, Write};
