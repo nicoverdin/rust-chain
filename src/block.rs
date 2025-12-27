@@ -47,14 +47,14 @@ impl Block {
     pub fn mine(&mut self, difficulty: usize) {
         let target = "0".repeat(difficulty);
 
-        println!("⛏️  Minando bloque {}...", self.height);
+        println!("⛏️  Mining block {}...", self.height);
 
         while &self.hash[0..difficulty] != target {
             self.nonce += 1;
             self.hash = self.calculate_hash();
         }
 
-        println!("✅ Bloque minado! Nonce: {}, Hash: {}", self.nonce, self.hash);
+        println!("✅ Block successfully mined! Nonce: {}, Hash: {}", self.nonce, self.hash);
     }
 
     pub fn genesis() -> Block {

@@ -2,27 +2,57 @@ mod block;
 mod chain;
 
 use chain::Blockchain;
-use std::time::Instant; // Para medir cuánto tarda
+use std::io::{self, Write};
 
 fn main() {
-    println!("⛓️  Iniciando RustChain con PoW...");
+    println!("⛓️  Iniciando RustChain...");
 
-    // Dificultad 2: Instantáneo
-    // Dificultad 4: Unos milisegundos
-    // Dificultad 5: Se empieza a notar (1-5 segundos)
-    // Dificultad 6: Prepara el café...
-    let difficulty = 5; 
-    let mut chain = Blockchain::new(difficulty);
+    let mut chain = match Blockchain::load_chain() {
+        Some(c) => {
+            println!("📂 Cadena cargada desde disco.");
+            println!("   Altura actual: {}", c.blocks.len());
+            println!("   Dificultad guardada: {}", c.difficulty);
+            c
+        },
+        None => {
+            println!("No se encontró registro. Creando nueva cadena Génesis.");
+            let difficulty = 4; // Configuración inicial
+            let new_chain = Blockchain::new(difficulty);
+            // Guardamos inmediatamente el estado inicial
+            let _ = new_chain.save_chain(); 
+            new_chain
+        }
+    };
 
-    println!("La dificultad está establecida en: {}", chain.difficulty);
+    println!("\n¿Es la cadena válida?: {}", chain.is_chain_valid());
 
-    let start = Instant::now();
-    
-    chain.add_block("Bloque 1: Datos importantes".to_string());
-    chain.add_block("Bloque 2: Más datos".to_string());
+    loop {
+        println!("\nMenú:");
+        println!("1. Añadir nuevo bloque");
+        println!("2. Ver toda la cadena");
+        println!("3. Salir");
+        print!("Selecciona una opción: ");
+        io::stdout().flush().unwrap();
 
-    let duration = start.elapsed();
-    println!("\n⏱️ Tiempo total de minado: {:?}", duration);
-    
-    println!("¿Cadena válida?: {}", chain.is_chain_valid());
+        let mut choice = String::new();
+        io::stdin().read_line(&mut choice).expect("Error leyendo línea");
+
+        match choice.trim() {
+            "1" => {
+                print!("Introduce los datos del bloque: ");
+                io::stdout().flush().unwrap();
+                let mut data = String::new();
+                io::stdin().read_line(&mut data).expect("Error");
+                chain.add_block(data.trim().to_string());
+            },
+            "2" => {
+                println!("{:#?}", chain);
+            },
+            "3" => {
+                println!("Saliendo... (Los datos están guardados en chain.json)");
+                break;
+            }
+            _ => println!("Opción no válida"),
+        }
+    }
 }

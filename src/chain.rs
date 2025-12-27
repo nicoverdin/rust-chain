@@ -1,6 +1,11 @@
 use crate::block::Block;
+use serde::{Serialize, Deserialize};
+use std::fs;
+use std::io::Write;
 
-#[derive(Debug)]
+const STORAGE_PATH: &str = "chain.json";
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Blockchain {
     pub blocks: Vec<Block>,
     pub difficulty: usize,
@@ -24,8 +29,9 @@ impl Blockchain {
         );
 
         new_block.mine(self.difficulty);
-
         self.blocks.push(new_block);
+
+        let _ = self.save_chain();
     }
 
     pub fn is_chain_valid(&self) -> bool {
@@ -37,5 +43,18 @@ impl Blockchain {
             if block.calculate_hash() != block.hash { return false; }
         }
         true
+    }
+
+    pub fn save_chain(&self) -> std::io::Result<()> {
+        let serialized = serde_json::to_string_pretty(&self)?;
+        let mut file = fs::File::create(STORAGE_PATH)?;
+        file.write_all(serialized.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn load_chain() -> Option<Blockchain> {
+        let data = fs::read_to_string(STORAGE_PATH).ok()?;
+        let chain: Blockchain = serde_json::from_str(&data).ok()?;
+        Some(chain)
     }
 }
