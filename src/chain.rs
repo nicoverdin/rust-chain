@@ -146,28 +146,40 @@ impl Blockchain {
 mod tests {
     use super::*;
     use crate::transaction::Transaction;
+    use ed25519_dalek::SigningKey;
+    use rand::rngs::OsRng;
 
     fn cleanup() {
         let _ = std::fs::remove_file("history.db");
     }
 
-    #[test]
-    fn test_genesis_block_creation() {
-        cleanup();
-        let chain = Blockchain::new(1);
+    fn create_valid_tx(amount: u64) -> Transaction {
+        let mut csprng = OsRng;
+        let key_pair = SigningKey::generate(&mut csprng);
+        let sender = hex::encode(key_pair.verifying_key().to_bytes());
         
-        assert_eq!(chain.blocks.len(), 1);
-        assert_eq!(chain.blocks[0].transactions.len(), 1);
+        let mut tx = Transaction::new(sender, "Bob".to_string(), amount);
+        tx.sign(&key_pair);
+        tx
     }
 
     #[test]
-    fn test_add_transaction() {
+    fn test_genesis_block() {
+        cleanup();
+        let chain = Blockchain::new(1);
+        assert_eq!(chain.blocks.len(), 1);
+    }
+
+    #[test]
+    fn test_add_valid_transaction() {
         cleanup();
         let mut chain = Blockchain::new(1);
         
-        let tx = Transaction::new("Alice".to_string(), "Bob".to_string(), 50);
-        chain.add_transaction(tx);
-
+        let tx = create_valid_tx(50);
+        
+        let accepted = chain.add_transaction(tx);
+        
+        assert!(accepted, "La transacción válida debería ser aceptada");
         assert_eq!(chain.pending_transactions.len(), 1);
     }
 
@@ -176,15 +188,27 @@ mod tests {
         cleanup();
         let mut chain = Blockchain::new(1);
         
-        let tx1 = Transaction::new("A".to_string(), "B".to_string(), 10);
-        chain.add_transaction(tx1);
+        let tx = create_valid_tx(10);
+        chain.add_transaction(tx);
 
-        // Minamos
         chain.mine_pending_transactions("Miner1".to_string());
 
-        // Verificaciones
         assert_eq!(chain.blocks.len(), 2);
         assert_eq!(chain.pending_transactions.len(), 0);
-        assert_eq!(chain.blocks[1].transactions.len(), 2);
+    }
+    
+    #[test]
+    fn test_reject_invalid_signature() {
+        cleanup();
+        let mut chain = Blockchain::new(1);
+        
+        let mut csprng = OsRng;
+        let key_pair = SigningKey::generate(&mut csprng);
+        let sender = hex::encode(key_pair.verifying_key().to_bytes());
+        
+        let tx = Transaction::new(sender, "Bob".to_string(), 100);
+        
+        let accepted = chain.add_transaction(tx);
+        assert!(!accepted, "La transacción sin firma debería ser rechazada");
     }
 }

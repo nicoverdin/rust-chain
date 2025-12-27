@@ -96,3 +96,38 @@ impl Transaction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::rngs::OsRng;
+    use ed25519_dalek::SigningKey;
+
+    #[test]
+    fn test_sign_and_verify_transaction() {
+        let mut csprng = OsRng;
+        let key_pair = SigningKey::generate(&mut csprng);
+        let public_key = key_pair.verifying_key();
+        let sender_address = hex::encode(public_key.to_bytes());
+
+        let mut tx = Transaction::new(sender_address, "Receiver".to_string(), 100);
+
+        tx.sign(&key_pair);
+
+        assert!(tx.is_valid(), "La transacción firmada debería ser válida");
+    }
+
+    #[test]
+    fn test_tampering_transaction() {
+        let mut csprng = OsRng;
+        let key_pair = SigningKey::generate(&mut csprng);
+        let sender_address = hex::encode(key_pair.verifying_key().to_bytes());
+
+        let mut tx = Transaction::new(sender_address, "Receiver".to_string(), 100);
+        tx.sign(&key_pair);
+
+        tx.amount = 1000; 
+
+        assert!(!tx.is_valid(), "Una transacción modificada debería ser inválida");
+    }
+}
