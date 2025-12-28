@@ -55,14 +55,14 @@ cargo run
 ### Terminal 2 (Node B)
 ```bash
 cargo run
-# Wait for the message: "👋 Nuevo vecino encontrado..."
+# Wait for the message: "New peer discovered..."
 ```
 
 ### Test Connectivity
 1. In **Terminal 1**, select Option `1` (Send Money).
 2. Paste the address of **Node B**.
 3. Enter an amount (e.g., 50).
-4. Watch **Terminal 2**: You will see the transaction arrive via the network automatically (`🔀 Recibida Tx...`).
+4. Watch **Terminal 2**: You will see the transaction arrive automatically.
 
 ### Test Block Synchronization (Mining)
 1. In **Terminal 1**, select Option `2` (Mine Block).
