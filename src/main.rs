@@ -5,9 +5,10 @@ mod p2p;
 
 use chain::Blockchain;
 use transaction::Transaction;
+use p2p::NetworkMessage;
 use std::io::{self, Write};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
@@ -35,16 +36,23 @@ async fn main() {
 
     let chain_shared = Arc::new(Mutex::new(chain));
 
-    // AQUI EN EL FUTURO: Lanzaremos la tarea de red (P2P) en segundo plano
-    // tokio::spawn(p2p::start_network(chain_shared.clone()));
+    let (p2p_sender, p2p_receiver) = mpsc::channel(32);
 
-    run_user_interface(chain_shared, key_pair, my_address).await;
+    let chain_for_p2p = chain_shared.clone();
+    tokio::spawn(async move {
+        if let Err(e) = p2p::start_network(chain_for_p2p, p2p_receiver).await {
+            eprintln!("Error en P2P Network: {}", e);
+        }
+    });
+
+    run_user_interface(chain_shared, key_pair, my_address, p2p_sender).await;
 }
 
 async fn run_user_interface(
     chain_shared: Arc<Mutex<Blockchain>>, 
     key_pair: SigningKey, 
-    my_address: String
+    my_address: String,
+    p2p_sender: mpsc::Sender<NetworkMessage>
 ) {
     loop {
         println!("\n=== RustChain Node Menu ===");
@@ -85,33 +93,35 @@ async fn run_user_interface(
                 );
                 tx.sign(&key_pair);
 
-                // ASYNC LOCK: Pedimos el candado para modificar la cadena
                 let mut chain = chain_shared.lock().await;
-                if chain.add_transaction(tx) {
-                    println!("Transaction signed and sent to Mempool.");
+                if chain.add_transaction(tx.clone()) {
+                    println!("Transaction verified and added to Local Mempool.");
+                    
+                    let tx_json = serde_json::to_string(&tx).unwrap();
+                    let msg = NetworkMessage::NewTransaction { data: tx_json };
+                    
+                    if let Err(e) = p2p_sender.send(msg).await {
+                         println!("Error broadcasting to network: {}", e);
+                    } else {
+                         println!("Broadcasting transaction to peers...");
+                    }
+
                 } else {
                     println!("Network rejected the transaction.");
                 }
             },
             "2" => {
                 println!("\n--- Mining ---");
-                // ASYNC LOCK
                 let mut chain = chain_shared.lock().await;
                 chain.mine_pending_transactions(my_address.clone());
             },
             "3" => {
                 let mut balance: i64 = 0;
-                
                 let chain = chain_shared.lock().await;
-                
                 for block in &chain.blocks {
                     for tx in &block.transactions {
-                        if tx.receiver == my_address {
-                            balance += tx.amount as i64;
-                        }
-                        if tx.sender == my_address {
-                            balance -= tx.amount as i64;
-                        }
+                        if tx.receiver == my_address { balance += tx.amount as i64; }
+                        if tx.sender == my_address { balance -= tx.amount as i64; }
                     }
                 }
                 println!("Your On-chain Balance: {}", balance);
@@ -123,38 +133,23 @@ async fn run_user_interface(
             "5" => {
                 println!("\nAuditing chain...");
                 let chain = chain_shared.lock().await;
-                let is_valid = chain.is_chain_valid();
-                
-                if is_valid {
-                    println!("System is INTEGRAL. History has not been tampered with.");
+                if chain.is_chain_valid() {
+                    println!("System is INTEGRAL.");
                 } else {
                     println!("RED ALERT: Chain is corrupt!");
                 }
             },
             "6" => {
                 println!("\nInitiating hack attempt...");
-                
                 let mut rng = OsRng;
                 let victim_key = SigningKey::generate(&mut rng);
                 let victim_address = hex::encode(victim_key.verifying_key().to_bytes());
                 
-                println!("Target (Victim): {}", victim_address);
-                println!("Attacker (You):  {}", my_address);
+                let mut fake_tx = Transaction::new(victim_address.clone(), my_address.clone(), 1000);
+                fake_tx.sign(&key_pair); // Mal firmado
 
-                let mut fake_tx = Transaction::new(
-                    victim_address.clone(),
-                    my_address.clone(),
-                    1000
-                );
-
-                fake_tx.sign(&key_pair);
-
-                println!("Transaction created and signed (with WRONG key).");
-                
                 let mut chain = chain_shared.lock().await;
-                let accepted = chain.add_transaction(fake_tx);
-
-                if accepted {
+                if chain.add_transaction(fake_tx) {
                     println!("CRITICAL: Network accepted fake transaction!");
                 } else {
                     println!("SUCCESS: Attack rejected.");

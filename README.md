@@ -2,59 +2,67 @@
 
 [![CI Status](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml)
 
-A robust and efficient Layer 1 Blockchain implementation written in Rust from scratch. This project demonstrates advanced concepts in distributed systems, cryptography, and I/O optimization, built purely for educational and engineering purposes.
+A robust, efficient, and fully decentralized Layer 1 Blockchain implementation written in Rust. This project demonstrates advanced concepts in distributed systems, asynchronous networking, cryptography, and I/O optimization.
 
 ## 🚀 Key Features
 
+- **Decentralized P2P Network:** Fully functional Peer-to-Peer layer using **libp2p**. Nodes automatically discover each other (mDNS) and propagate transactions using a Gossip protocol.
+- **Async & Concurrency:** Built on the **Tokio** runtime, allowing the node to handle user input, network events, and mining operations concurrently without blocking.
 - **Consensus Mechanism:** Proof of Work (PoW) algorithm with dynamic difficulty embedded within block metadata.
 - **Cryptographic Identity:** Wallet implementation using **Elliptic Curve Cryptography (Ed25519)** to sign transactions, ensuring non-repudiation and preventing identity theft.
 - **Efficient Persistence:** Custom storage engine based on **Append-Only Logs** using NDJSON, ensuring **O(1)** write complexity and crash consistency.
-- **Transaction Management:** Implemented a **Mempool** (Memory Pool) to decouple transaction ingestion from block mining, simulating high-throughput environments.
+- **Transaction Management:** Implemented a **Mempool** to decouple transaction ingestion from block mining.
 - **Data Integrity:** Full cryptographic validation (Hash linkage) to guarantee the immutability of the ledger history.
-- **Type Safety:** Leveraging Rust's strict type system to prevent invalid states at compile time.
-- **Code Quality (CI/CD):** Automated GitHub Actions workflow that executes `cargo test` and `clippy` on every commit to enforce code stability and best practices.
 
 ## 🛠️ Tech Stack
 
 - **Language:** Rust (2021 Edition)
+- **Async Runtime:** Tokio
+- **Networking:** libp2p (TCP, mDNS, Gossipsub, Noise, Yamux)
 - **Serialization:** Serde / Serde JSON
 - **Cryptography:** SHA-256 (`sha2`), Ed25519 (`ed25519-dalek`)
 - **Persistence:** File System (Buffered I/O with Append-Only logic)
 
 ## 🏗️ Architecture & Engineering Decisions
 
-### 1. Persistence Strategy: Append-Only vs. Rewrite
-**Problem:** Initially, the chain persistence was handled by serializing the entire `Blockchain` struct to a JSON file. As the chain grew, the write complexity became **O(N)**, causing significant latency.
-**Solution:** Refactored the storage layer to use an **Append-Only Log** model. New blocks are appended to the end of a file (`history.db`) using newline-delimited JSON. This reduced write latency to **O(1)** and improved data safety against crashes (atomic-like writes).
+### 1. Event-Driven P2P Architecture (Tokio + libp2p)
+**Problem:** A blocking, synchronous architecture cannot handle network traffic and user input simultaneously.
+**Solution:** Migrated the core engine to an asynchronous model using **Tokio**.
+- **Swarm:** The node manages a `Swarm` of peers using `libp2p`.
+- **Discovery:** Uses **mDNS** for automatic local peer discovery (Zero-Conf).
+- **Propagation:** Uses **Gossipsub** (a pub/sub protocol) to efficiently broadcast transactions and blocks to the entire network mesh.
+- **Concurrency:** The Blockchain state is wrapped in an `Arc<Mutex<Blockchain>>`, allowing thread-safe access from both the UI thread and the Network thread.
 
-### 2. Stateless Proof of Work (PoW)
-The consensus mechanism utilizes a Hashcash-style PoW.
-- Blocks are self-contained units; they include their own `difficulty` and `nonce`.
-- This design allows for **stateless validation**: a node can verify the validity of a specific block without needing to query the global configuration state at that specific point in time.
+### 2. Persistence Strategy: Append-Only vs. Rewrite
+**Problem:** Serializing the entire chain becomes **O(N)**, causing latency.
+**Solution:** Refactored to an **Append-Only Log** model. New blocks are appended to `history.db` using newline-delimited JSON. This ensures **O(1)** write complexity and data safety.
 
-### 3. Zero-Trust Security Model (Digital Signatures)
-To prevent transaction spoofing (Alice spending Bob's money), the system enforces a strict signature verification process.
-- **Algorithm:** Uses **Ed25519** (Edwards-curve Digital Signature Algorithm) for high performance and security.
-- **Flow:** Users sign transaction hashes with their Private Key. The node validates the signature against the sender's Public Key before accepting it into the Mempool. This mathematically guarantees the authenticity and integrity of every request.
+### 3. Zero-Trust Security Model
+To prevent transaction spoofing, the system enforces a strict signature verification process.
+- **Algorithm:** Uses **Ed25519** for high-performance digital signatures.
+- **Flow:** Users sign transaction hashes with their Private Key. Nodes validate the signature against the public key before adding it to the Mempool.
 
-### 4. Mempool & Mining Separation
-To mimic real-world distributed ledgers, the architecture separates the "Submit Transaction" action from the "Mine Block" action.
-- Transactions enter an in-memory buffer (Mempool).
-- The miner aggregates a batch of pending transactions to construct a block, maximizing network throughput.
+## ⚡ How to Run (P2P Demo)
 
-## ⚡ How to Run
+To see the decentralized network in action, you need to run at least two nodes.
 
-Prerequisites: Ensure `cargo` and `rustc` are installed.
-
+### Terminal 1 (Node A)
 ```bash
-# 1. Clone the repository
-git clone [https://github.com/nicoverdin/rust-chain](https://github.com/nicoverdin/rust-chain)
-cd rust-chain
-
-# 2. Run the node 
-# (Note: Delete 'history.db' if you are migrating from a previous version)
 cargo run
+# Copy the Public Address displayed (e.g., AAAA...)
 ```
+
+### Terminal 2 (Node B)
+```bash
+cargo run
+# Wait for the message: "👋 Nuevo vecino encontrado..."
+```
+
+### Test Connectivity
+1. In **Terminal 1**, select Option `1` (Send Money).
+2. Paste the address of **Node B**.
+3. Enter an amount (e.g., 50).
+4. Watch **Terminal 2**: You will see the transaction arrive via the network automatically (`🔀 Recibida Tx...`).
 
 ## 🗺️ Roadmap
 
@@ -63,5 +71,6 @@ cargo run
 - [x] Optimized Disk Persistence (Append-Only)
 - [x] Transactions & Mempool
 - [x] Digital Signatures (Elliptic Curve Cryptography)
-- [ ] P2P Network Implementation (libp2p)
+- [x] P2P Network (Discovery & Gossipsub)
+- [ ] Block Propagation & Chain Synchronization
 - [ ] CLI Wallet Interface
