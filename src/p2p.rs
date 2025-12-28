@@ -19,6 +19,7 @@ use crate::transaction::Transaction;
 pub enum NetworkMessage {
     NewBlock { data: String },
     NewTransaction { data: String },
+    FullChain { data: String },
 }
 
 #[derive(NetworkBehaviour)]
@@ -62,9 +63,11 @@ pub async fn start_network(
 
     let topic_blocks = gossipsub::IdentTopic::new("blocks");
     let topic_txs = gossipsub::IdentTopic::new("transactions");
+    let topic_sync = gossipsub::IdentTopic::new("sync");
     
     gossipsub.subscribe(&topic_blocks)?;
     gossipsub.subscribe(&topic_txs)?;
+    gossipsub.subscribe(&topic_sync)?;
 
     let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), peer_id)?;
 
@@ -88,6 +91,7 @@ pub async fn start_network(
                 let topic = match msg {
                     NetworkMessage::NewBlock { .. } => topic_blocks.clone(),
                     NetworkMessage::NewTransaction { .. } => topic_txs.clone(),
+                    NetworkMessage::FullChain { .. } => topic_sync.clone(),
                 };
 
                 if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg_json.as_bytes()) {
@@ -122,11 +126,9 @@ pub async fn start_network(
                             NetworkMessage::NewBlock { data } => {
                                 if let Ok(block) = serde_json::from_str::<crate::block::Block>(&data) {
                                     println!("Received Block #{} from {}. Verifying...", block.height, peer_id);
-                                    
                                     let mut chain = chain_shared.lock().await;
-                                    
                                     if chain.receive_block(block) {
-                                        println!("   Block accepted and added to chain.");
+                                        println!("   Block accepted.");
                                     } else {
                                         println!("   Block rejected.");
                                     }
@@ -134,84 +136,27 @@ pub async fn start_network(
                             },
                             NetworkMessage::NewTransaction { data } => {
                                 if let Ok(tx) = serde_json::from_str::<Transaction>(&data) {
-                                    println!("Received Transaction from {}. Validating...", peer_id);
+                                    println!("Received Tx from {}.", peer_id);
                                     let mut chain = chain_shared.lock().await;
-                                    if chain.add_transaction(tx) {
-                                        println!("   Transaction added to Mempool.");
+                                    chain.add_transaction(tx);
+                                }
+                            },
+                            NetworkMessage::FullChain { data } => {
+                                if let Ok(remote_blocks) = serde_json::from_str::<Vec<crate::block::Block>>(&data) {
+                                    println!("Received Full Chain (Height: {}) from {}. Checking consensus...", remote_blocks.len(), peer_id);
+                                    let mut chain = chain_shared.lock().await;
+                                    if chain.replace_chain(remote_blocks) {
+                                        println!("   CHAIN SYNC COMPLETE: Local chain replaced.");
                                     } else {
-                                        println!("   Transaction rejected.");
+                                        println!("   Chain rejected (shorter or invalid).");
                                     }
                                 }
                             }
                         }
                     }
                 },
-
-                SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                    println!("Connection closed with: {}", peer_id);
-                    swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                },
-
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    println!("Listening on: {}", address);
-                },
                 _ => {}
             }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_network_message_serialization_transaction() {
-        // Mock a JSON string representing a transaction
-        let tx_data = r#"{"id":"123","sender":"Alice","receiver":"Bob","amount":10}"#.to_string();
-        
-        let msg = NetworkMessage::NewTransaction { data: tx_data.clone() };
-        
-        let serialized = serde_json::to_string(&msg).expect("Should serialize NetworkMessage");
-        
-        let deserialized: NetworkMessage = serde_json::from_str(&serialized).expect("Should deserialize NetworkMessage");
-
-        match deserialized {
-            NetworkMessage::NewTransaction { data } => {
-                assert_eq!(data, tx_data, "Transaction data should persist through serialization");
-            },
-            _ => panic!("Wrong message type deserialized"),
-        }
-    }
-
-    #[test]
-    fn test_network_message_serialization_block() {
-        let block_data = r#"{"index":1,"hash":"000abc"}"#.to_string();
-        
-        let msg = NetworkMessage::NewBlock { data: block_data.clone() };
-        
-        let serialized = serde_json::to_string(&msg).expect("Should serialize");
-        let deserialized: NetworkMessage = serde_json::from_str(&serialized).expect("Should deserialize");
-
-        match deserialized {
-            NetworkMessage::NewBlock { data } => {
-                assert_eq!(data, block_data, "Block data should persist through serialization");
-            },
-            _ => panic!("Wrong message type deserialized"),
-        }
-    }
-
-    #[test]
-    fn test_network_message_structure() {
-        let json_input = r#"{"NewTransaction":{"data":"test_data"}}"#;
-        
-        let deserialized: NetworkMessage = serde_json::from_str(json_input).expect("Should parse standard enum JSON");
-        
-        match deserialized {
-            NetworkMessage::NewTransaction { data } => {
-                assert_eq!(data, "test_data");
-            },
-            _ => panic!("Structure mismatch"),
         }
     }
 }

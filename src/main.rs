@@ -11,10 +11,8 @@ use p2p::NetworkMessage;
 use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
-
 use ed25519_dalek::SigningKey;
 
-// Archivos persistentes
 const DB_PATH: &str = "history.db";
 const WALLET_PATH: &str = "wallet.key";
 
@@ -30,7 +28,7 @@ async fn main() {
 
     println!("\n=== IDENTITY LOADED ===");
     println!("   Public Address: {}", my_address);
-    println!("   (This address is persistent. Your funds are safe in 'wallet.key')\n");
+    println!("   (This address is persistent)\n");
 
     println!("Loading blockchain from {}...", DB_PATH);
     let chain = Blockchain::load_chain(DB_PATH.to_string()).unwrap_or_else(|| {
@@ -66,7 +64,8 @@ async fn run_user_interface(
         println!("4. View Full Chain");
         println!("5. Validate Chain Integrity");
         println!("6. SIMULATE ATTACK (Attempt Identity Theft)");
-        println!("7. Exit");
+        println!("7. BROADCAST FULL CHAIN (Force Sync)"); // NUEVA OPCIÓN
+        println!("8. Exit");
         print!("Select option: ");
         io::stdout().flush().unwrap();
 
@@ -105,13 +104,8 @@ async fn run_user_interface(
                     let msg = NetworkMessage::NewTransaction { data: tx_json };
                     
                     if let Err(e) = p2p_sender.send(msg).await {
-                         println!("Error broadcasting to network: {}", e);
-                    } else {
-                         println!("Broadcasting transaction to peers...");
+                         println!("Error broadcasting: {}", e);
                     }
-
-                } else {
-                    println!("Network rejected the transaction.");
                 }
             },
             "2" => {
@@ -149,7 +143,6 @@ async fn run_user_interface(
                 println!("{:#?}", *chain);
             },
             "5" => {
-                println!("\nAuditing chain...");
                 let chain = chain_shared.lock().await;
                 if chain.is_chain_valid() {
                     println!("System integrity verified.");
@@ -158,24 +151,34 @@ async fn run_user_interface(
                 }
             },
             "6" => {
-                println!("\nInitiating hack attempt...");
-                // Para el ataque, generamos una key aleatoria TEMPORAL (no guardada)
                 use rand::rngs::OsRng;
                 let mut rng = OsRng;
                 let victim_key = SigningKey::generate(&mut rng);
-                let victim_address = hex::encode(victim_key.verifying_key().to_bytes());
-                
-                let mut fake_tx = Transaction::new(victim_address.clone(), my_address.clone(), 1000);
-                fake_tx.sign(&key_pair); // Firmamos con NUESTRA clave (no la de la víctima)
-
+                let victim_addr = hex::encode(victim_key.verifying_key().to_bytes());
+                let mut fake_tx = Transaction::new(victim_addr, my_address.clone(), 1000);
+                fake_tx.sign(&key_pair); 
                 let mut chain = chain_shared.lock().await;
                 if chain.add_transaction(fake_tx) {
                     println!("CRITICAL: Network accepted fake transaction!");
                 } else {
-                    println!("SUCCESS: Attack rejected (Signature mismatch).");
+                    println!("SUCCESS: Attack rejected.");
                 }
             },
-            "7" => break,
+            "7" => {
+                println!("Preparing to broadcast full chain...");
+                let chain_data = {
+                    let chain = chain_shared.lock().await;
+                    serde_json::to_string(&chain.blocks).unwrap()
+                };
+                
+                let msg = NetworkMessage::FullChain { data: chain_data };
+                if let Err(e) = p2p_sender.send(msg).await {
+                    println!("Error broadcasting chain: {}", e);
+                } else {
+                    println!("Full chain broadcasted to peers.");
+                }
+            },
+            "8" => break,
             _ => println!("Invalid option"),
         }
     }

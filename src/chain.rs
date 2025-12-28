@@ -90,7 +90,11 @@ impl Blockchain {
     }
 
     pub fn is_chain_valid(&self) -> bool {
-        for (i, block) in self.blocks.iter().enumerate() {
+        Self::is_chain_valid_static(&self.blocks)
+    }
+
+    fn is_chain_valid_static(blocks: &[Block]) -> bool {
+        for (i, block) in blocks.iter().enumerate() {
             if block.calculate_hash() != block.hash {
                 println!("Invalid block {}: Hash does not match data.", i);
                 return false;
@@ -98,12 +102,33 @@ impl Blockchain {
 
             if i == 0 { continue; }
             
-            let prev_block = &self.blocks[i - 1];
+            let prev_block = &blocks[i - 1];
             if block.prev_block_hash != prev_block.hash {
                 println!("Invalid block {}: Previous hash does not match.", i);
                 return false;
             }
         }
+        true
+    }
+
+    pub fn replace_chain(&mut self, new_blocks: Vec<Block>) -> bool {
+        if new_blocks.len() < self.blocks.len() {
+            println!("Consensus: Received chain is shorter or equal. Keeping current.");
+            return false;
+        }
+
+        if !Self::is_chain_valid_static(&new_blocks) {
+            println!("Consensus: Received chain is invalid.");
+            return false;
+        }
+
+        println!("Consensus: The received chain is longer and valid. Replacing local chain.");
+        self.blocks = new_blocks;
+
+        if let Err(e) = self.save_chain_to_disk() {
+            eprintln!("Error saving new chain to disk: {}", e);
+        }
+
         true
     }
 
@@ -142,11 +167,21 @@ impl Blockchain {
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(&self.storage_path)?; // Usamos self.storage_path
+            .open(&self.storage_path)?;
 
         let serialized = serde_json::to_string(&block)?;
 
         writeln!(file, "{}", serialized)?;
+        Ok(())
+    }
+
+    pub fn save_chain_to_disk(&self) -> io::Result<()> {
+        let mut file = fs::File::create(&self.storage_path)?;
+
+        for block in &self.blocks {
+            let serialized = serde_json::to_string(&block)?;
+            writeln!(file, "{}", serialized)?;
+        }
         Ok(())
     }
 
@@ -295,5 +330,55 @@ mod tests {
         assert_eq!(loaded_chain.blocks.len(), 2, "Should recover exactly 2 blocks");
         
         cleanup(path);
+    }
+
+    #[test]
+    fn test_replace_chain_consensus() {
+        let path_a = "test_consensus_a.db";
+        let path_b = "test_consensus_b.db";
+        cleanup(path_a);
+        cleanup(path_b);
+
+        let mut chain_a = Blockchain::new(1, path_a.to_string());
+        
+        chain_a.add_transaction(create_valid_tx(10));
+        chain_a.mine_pending_transactions("MinerA".into());
+        
+        chain_a.add_transaction(create_valid_tx(20));
+        chain_a.mine_pending_transactions("MinerA".into());
+
+        assert_eq!(chain_a.blocks.len(), 3, "Chain A should have 3 blocks");
+
+        let mut chain_b = Blockchain::new(1, path_b.to_string());
+
+        let replaced = chain_b.replace_chain(chain_a.blocks.clone());
+
+        assert!(replaced, "Node B should adopt the longer chain from A");
+        assert_eq!(chain_b.blocks.len(), 3);
+
+        cleanup(path_a);
+        cleanup(path_b);
+    }
+
+    #[test]
+    fn test_replace_chain_rejects_shorter() {
+        let path_a = "test_short.db";
+        let path_b = "test_long.db";
+        cleanup(path_a);
+        cleanup(path_b);
+
+        let chain_a = Blockchain::new(1, path_a.to_string());
+        
+        let mut chain_b = Blockchain::new(1, path_b.to_string()); 
+        chain_b.add_transaction(create_valid_tx(10));
+        chain_b.mine_pending_transactions("MinerB".into());
+
+        let replaced = chain_b.replace_chain(chain_a.blocks.clone());
+
+        assert!(!replaced, "Node B should NOT replace its longer chain with a shorter one");
+        assert_eq!(chain_b.blocks.len(), 2, "Chain B should keep its length");
+        
+        cleanup(path_a);
+        cleanup(path_b);
     }
 }
