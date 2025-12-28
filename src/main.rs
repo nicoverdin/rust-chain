@@ -2,18 +2,21 @@ mod block;
 mod chain;
 mod transaction;
 mod p2p;
+mod wallet;
 
 use chain::Blockchain;
 use transaction::Transaction;
+use wallet::WalletManager;
 use p2p::NetworkMessage;
 use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
 
 use ed25519_dalek::SigningKey;
-use rand::rngs::OsRng;
 
+// Archivos persistentes
 const DB_PATH: &str = "history.db";
+const WALLET_PATH: &str = "wallet.key";
 
 #[tokio::main]
 async fn main() {
@@ -21,14 +24,13 @@ async fn main() {
     
     println!("Initializing RustChain Node...");
 
-    let mut csprng = OsRng;
-    let key_pair: SigningKey = SigningKey::generate(&mut csprng);
+    let key_pair: SigningKey = WalletManager::load_or_generate(WALLET_PATH);
     let public_key = key_pair.verifying_key();
     let my_address = hex::encode(public_key.to_bytes());
 
-    println!("\nIdentity Generated:");
+    println!("\n=== IDENTITY LOADED ===");
     println!("   Public Address: {}", my_address);
-    println!("   (Copy this address to receive funds or simulate transfers)\n");
+    println!("   (This address is persistent. Your funds are safe in 'wallet.key')\n");
 
     println!("Loading blockchain from {}...", DB_PATH);
     let chain = Blockchain::load_chain(DB_PATH.to_string()).unwrap_or_else(|| {
@@ -157,18 +159,20 @@ async fn run_user_interface(
             },
             "6" => {
                 println!("\nInitiating hack attempt...");
+                // Para el ataque, generamos una key aleatoria TEMPORAL (no guardada)
+                use rand::rngs::OsRng;
                 let mut rng = OsRng;
                 let victim_key = SigningKey::generate(&mut rng);
                 let victim_address = hex::encode(victim_key.verifying_key().to_bytes());
                 
                 let mut fake_tx = Transaction::new(victim_address.clone(), my_address.clone(), 1000);
-                fake_tx.sign(&key_pair);
+                fake_tx.sign(&key_pair); // Firmamos con NUESTRA clave (no la de la víctima)
 
                 let mut chain = chain_shared.lock().await;
                 if chain.add_transaction(fake_tx) {
                     println!("CRITICAL: Network accepted fake transaction!");
                 } else {
-                    println!("SUCCESS: Attack rejected.");
+                    println!("SUCCESS: Attack rejected (Signature mismatch).");
                 }
             },
             "7" => break,

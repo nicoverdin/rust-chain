@@ -1,2 +1,13 @@
+# Rust Build
 /target
-**/*.rs.bk
+
+# Local Database (Blockchain history)
+history.db
+test_*.db
+
+# Security: Private Keys
+wallet.key
+*.bak
+
+# OS junk
+.DS_Store
