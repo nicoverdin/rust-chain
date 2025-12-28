@@ -11,3 +11,7 @@ chrono = "0.4"
 hex = "0.4"
 rand = "0.8"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+tokio = { version = "1.35", features = ["full"] }
+libp2p = { version = "0.53", features = ["tcp", "dns", "websocket", "noise", "yamux", "gossipsub", "mdns", "macros", "tokio"] }
+log = "0.4"
+env_logger = "0.10"
