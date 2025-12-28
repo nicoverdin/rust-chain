@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::chain::Blockchain;
 use crate::transaction::Transaction;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum NetworkMessage {
     NewBlock { data: String },
     NewTransaction { data: String },
@@ -157,6 +157,61 @@ pub async fn start_network(
                 },
                 _ => {}
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_network_message_serialization_transaction() {
+        // Mock a JSON string representing a transaction
+        let tx_data = r#"{"id":"123","sender":"Alice","receiver":"Bob","amount":10}"#.to_string();
+        
+        let msg = NetworkMessage::NewTransaction { data: tx_data.clone() };
+        
+        let serialized = serde_json::to_string(&msg).expect("Should serialize NetworkMessage");
+        
+        let deserialized: NetworkMessage = serde_json::from_str(&serialized).expect("Should deserialize NetworkMessage");
+
+        match deserialized {
+            NetworkMessage::NewTransaction { data } => {
+                assert_eq!(data, tx_data, "Transaction data should persist through serialization");
+            },
+            _ => panic!("Wrong message type deserialized"),
+        }
+    }
+
+    #[test]
+    fn test_network_message_serialization_block() {
+        let block_data = r#"{"index":1,"hash":"000abc"}"#.to_string();
+        
+        let msg = NetworkMessage::NewBlock { data: block_data.clone() };
+        
+        let serialized = serde_json::to_string(&msg).expect("Should serialize");
+        let deserialized: NetworkMessage = serde_json::from_str(&serialized).expect("Should deserialize");
+
+        match deserialized {
+            NetworkMessage::NewBlock { data } => {
+                assert_eq!(data, block_data, "Block data should persist through serialization");
+            },
+            _ => panic!("Wrong message type deserialized"),
+        }
+    }
+
+    #[test]
+    fn test_network_message_structure() {
+        let json_input = r#"{"NewTransaction":{"data":"test_data"}}"#;
+        
+        let deserialized: NetworkMessage = serde_json::from_str(json_input).expect("Should parse standard enum JSON");
+        
+        match deserialized {
+            NetworkMessage::NewTransaction { data } => {
+                assert_eq!(data, "test_data");
+            },
+            _ => panic!("Structure mismatch"),
         }
     }
 }

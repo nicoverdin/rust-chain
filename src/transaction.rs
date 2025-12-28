@@ -130,4 +130,57 @@ mod tests {
 
         assert!(!tx.is_valid(), "Tampered transaction should be invalid");
     }
+
+    #[test]
+    fn test_system_transaction_validity() {
+        let tx = Transaction::new("SYSTEM".to_string(), "Miner".to_string(), 50);
+        assert!(tx.is_valid(), "SYSTEM transaction should be valid without signature");
+    }
+
+    #[test]
+    fn test_missing_signature_fails() {
+        let mut csprng = OsRng;
+        let key_pair = SigningKey::generate(&mut csprng);
+        let sender_address = hex::encode(key_pair.verifying_key().to_bytes());
+
+        let tx = Transaction::new(sender_address, "Receiver".to_string(), 100);
+        
+        assert!(!tx.is_valid(), "Transaction without signature should be invalid");
+    }
+
+    #[test]
+    fn test_wrong_signer_rejected() {
+        let mut csprng = OsRng;
+        
+        let key_pair_a = SigningKey::generate(&mut csprng);
+        let sender_address = hex::encode(key_pair_a.verifying_key().to_bytes());
+
+        let key_pair_b = SigningKey::generate(&mut csprng);
+
+        let mut tx = Transaction::new(sender_address, "Receiver".to_string(), 100);
+        
+        tx.sign(&key_pair_b);
+
+        assert!(!tx.is_valid(), "Signature must match sender public key");
+    }
+
+    #[test]
+    fn test_malformed_sender_address() {
+        let tx = Transaction::new("INVALID_HEX_STRING".to_string(), "Receiver".to_string(), 100);
+        assert!(!tx.is_valid(), "Malformed sender address should result in invalid tx");
+    }
+
+    #[test]
+    fn test_malformed_signature_hex() {
+        let mut csprng = OsRng;
+        let key_pair = SigningKey::generate(&mut csprng);
+        let sender_address = hex::encode(key_pair.verifying_key().to_bytes());
+
+        let mut tx = Transaction::new(sender_address, "Receiver".to_string(), 100);
+        tx.sign(&key_pair);
+
+        tx.signature = Some("ZZZZZZZ_NOT_HEX".to_string());
+
+        assert!(!tx.is_valid(), "Malformed signature hex should result in invalid tx");
+    }
 }

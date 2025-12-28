@@ -13,6 +13,8 @@ use tokio::sync::{Mutex, mpsc};
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
+const DB_PATH: &str = "history.db";
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
@@ -28,10 +30,10 @@ async fn main() {
     println!("   Public Address: {}", my_address);
     println!("   (Copy this address to receive funds or simulate transfers)\n");
 
-    println!("Loading blockchain from history.db...");
-    let chain = Blockchain::load_chain().unwrap_or_else(|| {
+    println!("Loading blockchain from {}...", DB_PATH);
+    let chain = Blockchain::load_chain(DB_PATH.to_string()).unwrap_or_else(|| {
         println!("   No history found. Creating Genesis block.");
-        Blockchain::new(4)
+        Blockchain::new(4, DB_PATH.to_string())
     });
 
     let chain_shared = Arc::new(Mutex::new(chain));
