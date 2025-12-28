@@ -7,6 +7,7 @@ A robust and efficient Layer 1 Blockchain implementation written in Rust from sc
 ## 🚀 Key Features
 
 - **Consensus Mechanism:** Proof of Work (PoW) algorithm with dynamic difficulty embedded within block metadata.
+- **Cryptographic Identity:** Wallet implementation using **Elliptic Curve Cryptography (Ed25519)** to sign transactions, ensuring non-repudiation and preventing identity theft.
 - **Efficient Persistence:** Custom storage engine based on **Append-Only Logs** using NDJSON, ensuring **O(1)** write complexity and crash consistency.
 - **Transaction Management:** Implemented a **Mempool** (Memory Pool) to decouple transaction ingestion from block mining, simulating high-throughput environments.
 - **Data Integrity:** Full cryptographic validation (Hash linkage) to guarantee the immutability of the ledger history.
@@ -17,7 +18,7 @@ A robust and efficient Layer 1 Blockchain implementation written in Rust from sc
 
 - **Language:** Rust (2021 Edition)
 - **Serialization:** Serde / Serde JSON
-- **Cryptography:** SHA-256 (`sha2` crate)
+- **Cryptography:** SHA-256 (`sha2`), Ed25519 (`ed25519-dalek`)
 - **Persistence:** File System (Buffered I/O with Append-Only logic)
 
 ## 🏗️ Architecture & Engineering Decisions
@@ -31,7 +32,12 @@ The consensus mechanism utilizes a Hashcash-style PoW.
 - Blocks are self-contained units; they include their own `difficulty` and `nonce`.
 - This design allows for **stateless validation**: a node can verify the validity of a specific block without needing to query the global configuration state at that specific point in time.
 
-### 3. Mempool & Mining Separation
+### 3. Zero-Trust Security Model (Digital Signatures)
+To prevent transaction spoofing (Alice spending Bob's money), the system enforces a strict signature verification process.
+- **Algorithm:** Uses **Ed25519** (Edwards-curve Digital Signature Algorithm) for high performance and security.
+- **Flow:** Users sign transaction hashes with their Private Key. The node validates the signature against the sender's Public Key before accepting it into the Mempool. This mathematically guarantees the authenticity and integrity of every request.
+
+### 4. Mempool & Mining Separation
 To mimic real-world distributed ledgers, the architecture separates the "Submit Transaction" action from the "Mine Block" action.
 - Transactions enter an in-memory buffer (Mempool).
 - The miner aggregates a batch of pending transactions to construct a block, maximizing network throughput.
