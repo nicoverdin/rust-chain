@@ -54,12 +54,12 @@ impl Transaction {
     }
 
     pub fn is_valid(&self) -> bool {
-        if self.sender == "SISTEM" {
+        if self.sender == "SYSTEM" {
             return true
         }
 
         if self.signature.is_none() {
-            println!("Error: transaction without signature.");
+            println!("Error: Transaction without signature.");
             return false;
         }
 
@@ -90,7 +90,7 @@ impl Transaction {
         match public_key.verify(message.as_bytes(), &signature) {
             Ok(_) => true,
             Err(_) => {
-                println!("Error: Invalid signature for this receiver.");
+                println!("Error: Invalid signature.");
                 false
             },
         }
@@ -114,7 +114,7 @@ mod tests {
 
         tx.sign(&key_pair);
 
-        assert!(tx.is_valid(), "La transacción firmada debería ser válida");
+        assert!(tx.is_valid(), "Signed transaction should be valid");
     }
 
     #[test]
@@ -128,6 +128,6 @@ mod tests {
 
         tx.amount = 1000; 
 
-        assert!(!tx.is_valid(), "Una transacción modificada debería ser inválida");
+        assert!(!tx.is_valid(), "Tampered transaction should be invalid");
     }
 }

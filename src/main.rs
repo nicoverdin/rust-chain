@@ -41,7 +41,7 @@ async fn main() {
     let chain_for_p2p = chain_shared.clone();
     tokio::spawn(async move {
         if let Err(e) = p2p::start_network(chain_for_p2p, p2p_receiver).await {
-            eprintln!("Error en P2P Network: {}", e);
+            eprintln!("Error in P2P Network: {}", e);
         }
     });
 
@@ -112,8 +112,22 @@ async fn run_user_interface(
             },
             "2" => {
                 println!("\n--- Mining ---");
-                let mut chain = chain_shared.lock().await;
-                chain.mine_pending_transactions(my_address.clone());
+                let mined_block = {
+                    let mut chain = chain_shared.lock().await;
+                    chain.mine_pending_transactions(my_address.clone());
+                    chain.blocks.last().unwrap().clone()
+                };
+
+                println!("Block #{} mined locally.", mined_block.height);
+
+                let block_json = serde_json::to_string(&mined_block).unwrap();
+                let msg = NetworkMessage::NewBlock { data: block_json };
+
+                if let Err(e) = p2p_sender.send(msg).await {
+                    println!("Error broadcasting block: {}", e);
+                } else {
+                    println!("Block propagated to the network.");
+                }
             },
             "3" => {
                 let mut balance: i64 = 0;
@@ -134,7 +148,7 @@ async fn run_user_interface(
                 println!("\nAuditing chain...");
                 let chain = chain_shared.lock().await;
                 if chain.is_chain_valid() {
-                    println!("System is INTEGRAL.");
+                    println!("System integrity verified.");
                 } else {
                     println!("RED ALERT: Chain is corrupt!");
                 }
@@ -146,7 +160,7 @@ async fn run_user_interface(
                 let victim_address = hex::encode(victim_key.verifying_key().to_bytes());
                 
                 let mut fake_tx = Transaction::new(victim_address.clone(), my_address.clone(), 1000);
-                fake_tx.sign(&key_pair); // Mal firmado
+                fake_tx.sign(&key_pair);
 
                 let mut chain = chain_shared.lock().await;
                 if chain.add_transaction(fake_tx) {

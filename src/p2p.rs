@@ -91,21 +91,21 @@ pub async fn start_network(
                 };
 
                 if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, msg_json.as_bytes()) {
-                    println!("Error publicando mensaje: {:?}", e);
+                    println!("Error publishing message: {:?}", e);
                 }
             }
 
             event = swarm.select_next_some() => match event {
                 SwarmEvent::Behaviour(AppBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     for (peer_id, _multiaddr) in list {
-                        println!("Nuevo vecino encontrado: {}", peer_id);
+                        println!("New peer discovered: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                     }
                 },
                 
                 SwarmEvent::Behaviour(AppBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
                     for (peer_id, _multiaddr) in list {
-                        println!("Vecino desconectado: {}", peer_id);
+                        println!("Peer expired (mDNS): {}", peer_id);
                         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
                     }
                 },
@@ -119,17 +119,27 @@ pub async fn start_network(
                     
                     if let Ok(net_msg) = serde_json::from_str::<NetworkMessage>(&msg_json) {
                         match net_msg {
-                            NetworkMessage::NewBlock { data: _ } => {
-                                println!("Bloque recibido de {}: (Lógica pendiente)", peer_id);
+                            NetworkMessage::NewBlock { data } => {
+                                if let Ok(block) = serde_json::from_str::<crate::block::Block>(&data) {
+                                    println!("Received Block #{} from {}. Verifying...", block.height, peer_id);
+                                    
+                                    let mut chain = chain_shared.lock().await;
+                                    
+                                    if chain.receive_block(block) {
+                                        println!("   Block accepted and added to chain.");
+                                    } else {
+                                        println!("   Block rejected.");
+                                    }
+                                }
                             },
                             NetworkMessage::NewTransaction { data } => {
                                 if let Ok(tx) = serde_json::from_str::<Transaction>(&data) {
-                                    println!("Recibida Tx de {}. Validando...", peer_id);
+                                    println!("Received Transaction from {}. Validating...", peer_id);
                                     let mut chain = chain_shared.lock().await;
                                     if chain.add_transaction(tx) {
-                                        println!("   Tx añadida a Mempool");
+                                        println!("   Transaction added to Mempool.");
                                     } else {
-                                        println!("   Tx rechazada");
+                                        println!("   Transaction rejected.");
                                     }
                                 }
                             }
@@ -138,12 +148,12 @@ pub async fn start_network(
                 },
 
                 SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                println!("Conexión cerrada con: {}", peer_id);
-                swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-            },
+                    println!("Connection closed with: {}", peer_id);
+                    swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                },
 
                 SwarmEvent::NewListenAddr { address, .. } => {
-                    println!("Escuchando en: {}", address);
+                    println!("Listening on: {}", address);
                 },
                 _ => {}
             }

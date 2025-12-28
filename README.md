@@ -64,6 +64,11 @@ cargo run
 3. Enter an amount (e.g., 50).
 4. Watch **Terminal 2**: You will see the transaction arrive via the network automatically (`🔀 Recibida Tx...`).
 
+### Test Block Synchronization (Mining)
+1. In **Terminal 1**, select Option `2` (Mine Block).
+2. Wait for the mining process to finish.
+3. Watch **Terminal 2**: It will receive the new block, validate the Proof of Work, and append it to its local chain automatically.
+
 ## 🗺️ Roadmap
 
 - [x] Block Structure & Hashing Logic
@@ -72,5 +77,5 @@ cargo run
 - [x] Transactions & Mempool
 - [x] Digital Signatures (Elliptic Curve Cryptography)
 - [x] P2P Network (Discovery & Gossipsub)
-- [ ] Block Propagation & Chain Synchronization
-- [ ] CLI Wallet Interface
+- [x] Block Propagation & Chain Synchronization
+- [ ] Wallet CLI Interface (Key Management)

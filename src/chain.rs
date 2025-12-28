@@ -35,26 +35,25 @@ impl Blockchain {
 
     pub fn add_transaction(&mut self, transaction: Transaction) -> bool {
         if !transaction.is_valid() {
-            println!("Invalid transaction: invalid or malformed firm.");
+            println!("Invalid transaction: Invalid or malformed signature.");
             return false;
         }
 
         self.pending_transactions.push(transaction);
-        println!("Transaction added to Mempool");
+        println!("Transaction added to Mempool.");
         true
     }
 
     pub fn mine_pending_transactions(&mut self, miner_address: String) {
         if self.pending_transactions.is_empty() {
-            println!("Pending transactions is empty.");
+            println!("No pending transactions to mine.");
             return;
         }
 
-        println!("Packing {} transactions in a new block...", self.pending_transactions.len());
+        println!("Packing {} transactions into a new block...", self.pending_transactions.len());
 
-        // System creates money to pay the miner
         let reward_tx = Transaction::new(
-            "SISTEM".to_string(),
+            "SYSTEM".to_string(),
             miner_address,
             50,
         );
@@ -77,16 +76,16 @@ impl Blockchain {
             Ok(_) => {
                 self.blocks.push(new_block);
                 self.pending_transactions.clear();
-                println!("Block mined successfully and cleared Mempool.");
+                println!("Block mined successfully. Mempool cleared.");
             },
-            Err(e) => eprintln!("Critical error saving {}", e),
+            Err(e) => eprintln!("Critical error saving block: {}", e),
         }
     }
 
     pub fn is_chain_valid(&self) -> bool {
         for (i, block) in self.blocks.iter().enumerate() {
             if block.calculate_hash() != block.hash {
-                println!("Invalid block {}: hash and data doesn't match.", i);
+                println!("Invalid block {}: Hash does not match data.", i);
                 return false;
             }
 
@@ -94,10 +93,38 @@ impl Blockchain {
             
             let prev_block = &self.blocks[i - 1];
             if block.prev_block_hash != prev_block.hash {
-                println!("Invalid block {}: Previous hash doesn't match.", i);
+                println!("Invalid block {}: Previous hash does not match.", i);
                 return false;
             }
         }
+        true
+    }
+
+    pub fn receive_block(&mut self, block: crate::block::Block) -> bool {
+        let last_block = self.blocks.last().unwrap();
+
+        if block.prev_block_hash != last_block.hash {
+            println!("Block rejected: Previous hash mismatch (Possible fork or synchronization issue).");
+            println!("   Expected: {}", last_block.hash);
+            println!("   Received: {}", block.prev_block_hash);
+            return false;
+        }
+
+        if block.calculate_hash() != block.hash {
+            println!("Block rejected: Invalid hash (Corrupted data).");
+            return false;
+        }
+
+        if !block.hash.starts_with(&"0".repeat(self.difficulty)) {
+            println!("Block rejected: Does not meet PoW difficulty.");
+            return false;
+        }
+
+        println!("External block #{} added to the chain.", block.height);
+        self.blocks.push(block);
+
+        self.pending_transactions.clear(); 
+        
         true
     }
 
@@ -179,7 +206,7 @@ mod tests {
         
         let accepted = chain.add_transaction(tx);
         
-        assert!(accepted, "La transacción válida debería ser aceptada");
+        assert!(accepted, "Valid transaction should be accepted");
         assert_eq!(chain.pending_transactions.len(), 1);
     }
 
@@ -209,6 +236,6 @@ mod tests {
         let tx = Transaction::new(sender, "Bob".to_string(), 100);
         
         let accepted = chain.add_transaction(tx);
-        assert!(!accepted, "La transacción sin firma debería ser rechazada");
+        assert!(!accepted, "Unsigned transaction should be rejected");
     }
 }
