@@ -33,7 +33,7 @@ async fn main() {
     println!("Loading blockchain from {}...", DB_PATH);
     let chain = Blockchain::load_chain(DB_PATH.to_string()).unwrap_or_else(|| {
         println!("   No history found. Creating Genesis block.");
-        Blockchain::new(4, DB_PATH.to_string())
+        Blockchain::new(2, DB_PATH.to_string())
     });
 
     let chain_shared = Arc::new(Mutex::new(chain));

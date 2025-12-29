@@ -4,6 +4,8 @@ use serde::{Serialize, Deserialize};
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 
+const BLOCK_GENERATION_INTERVAL: u64 = 4;
+const DIFFICULTY_ADJUSTMENT_INTERVAL: u64 = 5;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Blockchain {
@@ -51,6 +53,31 @@ impl Blockchain {
         true
     }
 
+    pub fn get_difficulty(&self) -> usize {
+        let last_block = self.blocks.last().unwrap();
+        
+        if (self.blocks.len() % DIFFICULTY_ADJUSTMENT_INTERVAL as usize != 0) || self.blocks.len() == 0 {
+            return last_block.difficulty;
+        }
+
+        let adjustment_block = &self.blocks[self.blocks.len() - DIFFICULTY_ADJUSTMENT_INTERVAL as usize];
+        
+        let time_expected = BLOCK_GENERATION_INTERVAL * DIFFICULTY_ADJUSTMENT_INTERVAL;
+        let time_taken = last_block.timestamp - adjustment_block.timestamp;
+
+        if time_taken < (time_expected as i64 / 2) {
+            println!("Network is working too fast! Increasing difficulty +1");
+            return last_block.difficulty + 1;
+        } else if time_taken > (time_expected as i64 * 2) {
+            println!("Network is too slow. Decreasing difficulty -1");
+            if last_block.difficulty > 1 {
+                return last_block.difficulty - 1;
+            }
+        }
+
+        last_block.difficulty
+    }
+
     pub fn mine_pending_transactions(&mut self, miner_address: String) {
         if self.pending_transactions.is_empty() {
             println!("No pending transactions to mine.");
@@ -70,11 +97,13 @@ impl Blockchain {
 
         let prev_block = self.blocks.last().unwrap();
 
+        let new_difficulty = self.get_difficulty();
+
         let mut new_block = Block::new(
             block_transactions,
             prev_block.hash.clone(),
             prev_block.height + 1,
-            self.difficulty,
+            new_difficulty,
         );
 
         new_block.mine();
@@ -83,8 +112,7 @@ impl Blockchain {
             Ok(_) => {
                 self.blocks.push(new_block);
                 self.pending_transactions.clear();
-                println!("Block mined successfully. Mempool cleared.");
-            },
+                println!("Block mined successfully (Diff: {}). Mempool cleared.", new_difficulty);            },
             Err(e) => eprintln!("Critical error saving block: {}", e),
         }
     }
@@ -380,5 +408,26 @@ mod tests {
         
         cleanup(path_a);
         cleanup(path_b);
+    }
+
+    #[test]
+    fn test_dynamic_difficulty_increase() {
+        let path = "test_difficulty.db";
+        cleanup(path);
+        
+        let mut chain = Blockchain::new(1, path.to_string());
+        
+        for _ in 0..5 {
+            chain.add_transaction(create_valid_tx(10));
+            chain.mine_pending_transactions("Miner".into());
+        }
+
+        chain.add_transaction(create_valid_tx(10));
+        chain.mine_pending_transactions("Miner".into());
+        
+        let last_block = chain.blocks.last().unwrap();
+        assert_eq!(last_block.difficulty, 2, "Difficulty should increase because we mined too fast");
+        
+        cleanup(path);
     }
 }

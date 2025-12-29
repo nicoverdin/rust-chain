@@ -12,6 +12,7 @@ A robust, efficient, and fully decentralized Layer 1 Blockchain implementation w
 - **Async & Concurrency:** Built on the **Tokio** runtime, allowing the node to handle user input, network events, and mining operations concurrently without blocking.
 - **Efficient Persistence:** Custom storage engine based on **Append-Only Logs** using NDJSON, ensuring **O(1)** write complexity and crash consistency.
 - **Data Integrity:** Full cryptographic validation (Ed25519 Signatures & SHA-256 Hashing) to guarantee the immutability of the ledger history.
+- **Adaptive Difficulty:** The network self-regulates to maintain a constant block generation time (Target: 4 seconds). It increases difficulty if blocks are mined too fast and decreases it if the network is sluggish.
 
 ## 🛠️ Tech Stack
 
@@ -38,6 +39,14 @@ A robust, efficient, and fully decentralized Layer 1 Blockchain implementation w
 ### 3. Persistent Wallet Management
 **Problem:** Generating a new identity on every run makes holding balances impossible.
 **Solution:** Implemented a secure `WalletManager` that serializes the Ed25519 keypair to disk (`wallet.key`). The system automatically loads existing identities or generates new ones if missing.
+
+### 4. Dynamic Difficulty Adjustment (Homeostasis)
+**Problem:** If network hashrate increases (better hardware or more miners), blocks would be mined instantly, flooding the network with data.
+**Solution:** The system monitors the time taken to mine the last **5 blocks**.
+- **Target:** 1 block every 4 seconds (20 seconds per epoch).
+- **Adjustment:**
+  - If time < 10s (Too Fast) → Difficulty increases (+1).
+  - If time > 40s (Too Slow) → Difficulty decreases (-1).
 
 ## ⚡ How to Run (P2P Demo)
 
@@ -72,4 +81,5 @@ cargo run
 - [x] P2P Network (Discovery & Gossipsub)
 - [x] Persistent Wallet (Key Storage)
 - [x] Consensus Algorithm (Longest Chain Rule & Sync)
+- [x] Dynamic Difficulty Adjustment (Target: 4s/block)
 - [ ] Wallet CLI Interface (Advanced Key Management)
