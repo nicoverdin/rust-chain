@@ -101,7 +101,7 @@ impl Blockchain {
 
     pub fn get_difficulty(&self) -> usize {
         let last_block = self.blocks.last().unwrap();
-        if (self.blocks.len() % DIFFICULTY_ADJUSTMENT_INTERVAL as usize != 0) || self.blocks.len() == 0 {
+        if (!self.blocks.len().is_multiple_of(DIFFICULTY_ADJUSTMENT_INTERVAL as usize)) || self.blocks.is_empty() {
             return last_block.difficulty;
         }
         let adjustment_block = &self.blocks[self.blocks.len() - DIFFICULTY_ADJUSTMENT_INTERVAL as usize];
