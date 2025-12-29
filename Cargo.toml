@@ -16,3 +16,4 @@ libp2p = { version = "0.53", features = ["tcp", "dns", "websocket", "noise", "ya
 log = "0.4"
 env_logger = "0.10"
 clap = { version = "4.4", features = ["derive"] }
+colored = "2.0"

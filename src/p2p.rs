@@ -127,7 +127,7 @@ pub async fn start_network(
                         match net_msg {
                             NetworkMessage::NewBlock { data } => {
                                 if let Ok(block) = serde_json::from_str::<crate::block::Block>(&data) {
-                                    println!("\n📦 Received Block #{} from {}.", block.height, peer_id);
+                                    println!("\nReceived Block #{} from {}.", block.height, peer_id);
                                     let mut chain = chain_shared.lock().await;
                                     if chain.receive_block(block) {
                                         println!("   Block accepted.");
