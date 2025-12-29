@@ -93,4 +93,4 @@ cargo run
 - [x] Dynamic Difficulty Adjustment (Target: 4s/block)
 - [x] Account Model Optimization (O(1) Balance)
 - [x] Double Spend Protection
-- [ ] Wallet CLI Interface (Advanced Key Management)
+- [x] Wallet CLI Interface (Advanced Key Management)

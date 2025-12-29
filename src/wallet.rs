@@ -53,6 +53,41 @@ impl WalletManager {
 
         Ok(SigningKey::from_bytes(&array))
     }
+
+    pub fn create_new_wallet(path: &str) {
+        if Path::new(path).exists() {
+            let _ = fs::rename(path, format!("{}.bak", path));
+            println!("Existing wallet found. Backup created at '{}.bak'", path);
+        }
+
+        let key = Self::generate();
+        Self::save(&key, path).expect("Failed to save wallet");
+        
+        let pub_key = key.verifying_key();
+        let address = hex::encode(pub_key.to_bytes());
+        
+        println!("New wallet generated successfully!");
+        println!("Saved to: {}", path);
+        println!("Address: {}", address);
+    }
+
+    pub fn show_wallet_info(path: &str) {
+        if !Path::new(path).exists() {
+            println!("No wallet found at '{}'. Use 'wallet new' to create one.", path);
+            return;
+        }
+
+        match Self::load(path) {
+            Ok(key) => {
+                let pub_key = key.verifying_key();
+                let address = hex::encode(pub_key.to_bytes());
+                println!("=== Wallet Info ===");
+                println!("Path: {}", path);
+                println!("Address: {}", address);
+            },
+            Err(e) => println!("Error loading wallet: {}", e),
+        }
+    }
 }
 
 #[cfg(test)]

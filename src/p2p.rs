@@ -9,7 +9,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use crate::chain::Blockchain;
@@ -30,12 +30,16 @@ pub struct AppBehaviour {
 
 pub async fn start_network(
     chain_shared: Arc<Mutex<Blockchain>>,
-    mut p2p_receiver: mpsc::Receiver<NetworkMessage>
+    mut p2p_receiver: mpsc::Receiver<NetworkMessage>,
+    init_signal: oneshot::Sender<()>
 ) -> Result<(), Box<dyn Error>> {
-    
+
     let id_keys = libp2p::identity::Keypair::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
+
     println!("Node Peer ID: {}", peer_id);
+
+    let _ = init_signal.send(());
 
     let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
         .upgrade(libp2p::core::upgrade::Version::V1)
@@ -102,14 +106,12 @@ pub async fn start_network(
             event = swarm.select_next_some() => match event {
                 SwarmEvent::Behaviour(AppBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     for (peer_id, _multiaddr) in list {
-                        println!("New peer discovered: {}", peer_id);
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                     }
                 },
                 
                 SwarmEvent::Behaviour(AppBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
                     for (peer_id, _multiaddr) in list {
-                        println!("Peer expired (mDNS): {}", peer_id);
                         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
                     }
                 },
@@ -125,7 +127,7 @@ pub async fn start_network(
                         match net_msg {
                             NetworkMessage::NewBlock { data } => {
                                 if let Ok(block) = serde_json::from_str::<crate::block::Block>(&data) {
-                                    println!("Received Block #{} from {}. Verifying...", block.height, peer_id);
+                                    println!("\n📦 Received Block #{} from {}.", block.height, peer_id);
                                     let mut chain = chain_shared.lock().await;
                                     if chain.receive_block(block) {
                                         println!("   Block accepted.");
@@ -136,24 +138,32 @@ pub async fn start_network(
                             },
                             NetworkMessage::NewTransaction { data } => {
                                 if let Ok(tx) = serde_json::from_str::<Transaction>(&data) {
-                                    println!("Received Tx from {}.", peer_id);
+                                    println!("\nReceived Tx from {}.", peer_id);
                                     let mut chain = chain_shared.lock().await;
                                     chain.add_transaction(tx);
                                 }
                             },
                             NetworkMessage::FullChain { data } => {
                                 if let Ok(remote_blocks) = serde_json::from_str::<Vec<crate::block::Block>>(&data) {
-                                    println!("Received Full Chain (Height: {}) from {}. Checking consensus...", remote_blocks.len(), peer_id);
+                                    println!("\nReceived Full Chain (Height: {}) from {}.", remote_blocks.len(), peer_id);
                                     let mut chain = chain_shared.lock().await;
                                     if chain.replace_chain(remote_blocks) {
                                         println!("   CHAIN SYNC COMPLETE: Local chain replaced.");
                                     } else {
-                                        println!("   Chain rejected (shorter or invalid).");
+                                        println!("   Chain rejected.");
                                     }
                                 }
                             }
                         }
                     }
+                },
+
+                SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                    swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                },
+
+                SwarmEvent::NewListenAddr { .. } => {
+                    // SILENCED
                 },
                 _ => {}
             }

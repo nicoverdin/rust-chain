@@ -10,16 +10,58 @@ use wallet::WalletManager;
 use p2p::NetworkMessage;
 use std::io::{self, Write};
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
 use ed25519_dalek::SigningKey;
+use clap::{Parser, Subcommand};
+use tokio::sync::{Mutex, mpsc, oneshot};
 
 const DB_PATH: &str = "history.db";
 const WALLET_PATH: &str = "wallet.key";
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Node,
+    Wallet {
+        #[command(subcommand)]
+        action: WalletAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum WalletAction {
+    New,
+    Show,
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Some(Commands::Wallet { action }) => {
+            match action {
+                WalletAction::New => {
+                    WalletManager::create_new_wallet(WALLET_PATH);
+                },
+                WalletAction::Show => {
+                    WalletManager::show_wallet_info(WALLET_PATH);
+                }
+            }
+        },
+        Some(Commands::Node) | None => {
+            start_node().await;
+        }
+    }
+}
+
+async fn start_node() {
     println!("Initializing RustChain Node...");
 
     let key_pair: SigningKey = WalletManager::load_or_generate(WALLET_PATH);
@@ -40,12 +82,18 @@ async fn main() {
 
     let (p2p_sender, p2p_receiver) = mpsc::channel(32);
 
+    let (init_sender, init_receiver) = oneshot::channel();
+
     let chain_for_p2p = chain_shared.clone();
     tokio::spawn(async move {
-        if let Err(e) = p2p::start_network(chain_for_p2p, p2p_receiver).await {
+        if let Err(e) = p2p::start_network(chain_for_p2p, p2p_receiver, init_sender).await {
             eprintln!("Error in P2P Network: {}", e);
         }
     });
+
+    println!("Starting P2P Network...");
+    let _ = init_receiver.await; 
+    println!("Network Active.");
 
     run_user_interface(chain_shared, key_pair, my_address, p2p_sender).await;
 }
@@ -64,7 +112,7 @@ async fn run_user_interface(
         println!("4. View Full Chain");
         println!("5. Validate Chain Integrity");
         println!("6. SIMULATE ATTACK (Attempt Identity Theft)");
-        println!("7. BROADCAST FULL CHAIN (Force Sync)"); // NUEVA OPCIÓN
+        println!("7. BROADCAST FULL CHAIN (Force Sync)");
         println!("8. Exit");
         print!("Select option: ");
         io::stdout().flush().unwrap();

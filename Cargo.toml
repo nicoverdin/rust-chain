@@ -15,3 +15,4 @@ tokio = { version = "1.35", features = ["full"] }
 libp2p = { version = "0.53", features = ["tcp", "dns", "websocket", "noise", "yamux", "gossipsub", "mdns", "macros", "tokio"] }
 log = "0.4"
 env_logger = "0.10"
+clap = { version = "4.4", features = ["derive"] }
