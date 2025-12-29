@@ -128,14 +128,8 @@ async fn run_user_interface(
                 }
             },
             "3" => {
-                let mut balance: i64 = 0;
                 let chain = chain_shared.lock().await;
-                for block in &chain.blocks {
-                    for tx in &block.transactions {
-                        if tx.receiver == my_address { balance += tx.amount as i64; }
-                        if tx.sender == my_address { balance -= tx.amount as i64; }
-                    }
-                }
+                let balance = chain.get_balance(&my_address);
                 println!("Your On-chain Balance: {}", balance);
             },
             "4" => {

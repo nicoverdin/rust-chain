@@ -13,6 +13,8 @@ A robust, efficient, and fully decentralized Layer 1 Blockchain implementation w
 - **Efficient Persistence:** Custom storage engine based on **Append-Only Logs** using NDJSON, ensuring **O(1)** write complexity and crash consistency.
 - **Data Integrity:** Full cryptographic validation (Ed25519 Signatures & SHA-256 Hashing) to guarantee the immutability of the ledger history.
 - **Adaptive Difficulty:** The network self-regulates to maintain a constant block generation time (Target: 4 seconds). It increases difficulty if blocks are mined too fast and decreases it if the network is sluggish.
+- **High-Performance State System:** Uses an in-memory `HashMap` cache to track user balances. Balance lookups are **O(1)** (instant), regardless of blockchain size.
+- **Economic Security:** strictly enforces solvency rules. Transactions attempting to spend more than the available balance are rejected at the Mempool level.
 
 ## 🛠️ Tech Stack
 
@@ -48,6 +50,13 @@ A robust, efficient, and fully decentralized Layer 1 Blockchain implementation w
   - If time < 10s (Too Fast) → Difficulty increases (+1).
   - If time > 40s (Too Slow) → Difficulty decreases (-1).
 
+### 5. Account Model & State Caching
+**Problem:** Calculating a user's balance by iterating through the entire history of blocks is **O(N)** and inefficient as the chain grows.
+**Solution:** The system maintains a localized `State` (HashMap) of all accounts.
+- **Update:** When a block is mined or received, the state updates incrementally.
+- **Query:** `get_balance` is **O(1)**.
+- **Validation:** Transactions are validated against this state before entering the Mempool, preventing Double Spending and Insufficient Funds errors.
+
 ## ⚡ How to Run (P2P Demo)
 
 To see the decentralized network in action, you need to run at least two nodes.
@@ -82,4 +91,6 @@ cargo run
 - [x] Persistent Wallet (Key Storage)
 - [x] Consensus Algorithm (Longest Chain Rule & Sync)
 - [x] Dynamic Difficulty Adjustment (Target: 4s/block)
+- [x] Account Model Optimization (O(1) Balance)
+- [x] Double Spend Protection
 - [ ] Wallet CLI Interface (Advanced Key Management)
