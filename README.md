@@ -1,4 +1,8 @@
-# RustChain 🦀⛓️
+<div align="center">
+  <img src="assets/banner.png" alt="RustChain Banner" width="100%">
+  <br>
+  <h1>RustChain 🦀⛓️</h1>
+</div>
 
 [![CI Status](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/nicoverdin/rust-chain/actions/workflows/rust_ci.yml)
 
