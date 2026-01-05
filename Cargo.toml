@@ -1,7 +1,9 @@
 [package]
 name = "rust-chain"
 version = "0.1.0"
+authors = ["Nicolás Verdín"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
